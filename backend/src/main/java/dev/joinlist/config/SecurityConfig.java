@@ -36,7 +36,8 @@ public class SecurityConfig {
     SecretKey signingKey(JoinlistProperties props) {
         byte[] bytes = props.secret().getBytes(StandardCharsets.UTF_8);
         if (bytes.length < 32) {
-            throw new IllegalStateException("joinlist.secret must be at least 32 characters");
+            throw new IllegalStateException("JOINLIST_SECRET must be at least 32 characters, but it has "
+                    + bytes.length + ". Set it to a long random value.");
         }
         return new SecretKeySpec(bytes, "HmacSHA256");
     }
