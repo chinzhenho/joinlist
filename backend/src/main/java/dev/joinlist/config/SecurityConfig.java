@@ -78,7 +78,8 @@ public class SecurityConfig {
         var config = new CorsConfiguration();
         // Forgive a trailing "/" or spaces in the setting, and allow wildcards such as
         // https://*.joinlist.pages.dev (Cloudflare's per-commit preview sites).
-        config.setAllowedOriginPatterns(props.corsOrigins().stream()
+        config.setAllowedOriginPatterns(java.util.stream.Stream.concat(
+                        props.corsOrigins().stream(), props.publicOrigins().stream())
                 .map(o -> o.trim().replaceAll("/+$", ""))
                 .filter(o -> !o.isEmpty())
                 .toList());

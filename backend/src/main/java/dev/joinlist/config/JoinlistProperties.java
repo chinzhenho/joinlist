@@ -8,6 +8,7 @@ public record JoinlistProperties(
         String secret,
         int tokenDays,
         List<String> corsOrigins,
+        List<String> publicOrigins,
         SeatStrategy seatStrategy,
         int cancelCutoffHours,
         RateLimit rateLimit,
