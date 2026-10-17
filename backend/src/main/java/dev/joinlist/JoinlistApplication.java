@@ -1,0 +1,13 @@
+package dev.joinlist;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class JoinlistApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(JoinlistApplication.class, args);
+	}
+
+}
