@@ -1,0 +1,31 @@
+# Run everything locally: docker compose up --build
+# API on http://localhost:8080, PostgreSQL on localhost:5432. Then run the frontend with npm run dev.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: joinlist
+      POSTGRES_USER: joinlist
+      POSTGRES_PASSWORD: joinlist
+    ports:
+      - "5432:5432"
+    command: ["postgres", "-c", "max_connections=200"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U joinlist"]
+      interval: 2s
+      retries: 20
+
+  api:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/joinlist
+      DATABASE_USERNAME: joinlist
+      DATABASE_PASSWORD: joinlist
+      # The load test signs up 1000 users from one machine, so turn the limiter off here.
+      RATE_LIMIT_ENABLED: "false"
+      SEAT_STRATEGY: ${SEAT_STRATEGY:-atomic}
+    ports:
+      - "8080:8080"
