@@ -76,7 +76,12 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource(JoinlistProperties props) {
         var config = new CorsConfiguration();
-        config.setAllowedOrigins(props.corsOrigins());
+        // Forgive a trailing "/" or spaces in the setting, and allow wildcards such as
+        // https://*.joinlist.pages.dev (Cloudflare's per-commit preview sites).
+        config.setAllowedOriginPatterns(props.corsOrigins().stream()
+                .map(o -> o.trim().replaceAll("/+$", ""))
+                .filter(o -> !o.isEmpty())
+                .toList());
         config.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setExposedHeaders(List.of("Content-Disposition"));
