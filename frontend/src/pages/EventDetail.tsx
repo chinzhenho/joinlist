@@ -7,13 +7,15 @@ import { downloadIcs, mapsUrl } from '../calendar'
 import { useFeedback, usePageTitle } from '../feedback'
 import { formatDateTime } from '../format'
 import { BackLink, Button, buttonClass, Card, ErrorNote, Loading, PhaseBadge, StatusBadge } from '../ui'
+import { useLive } from '../live'
 import { useLoad } from '../useLoad'
 import { SpotsLine } from './Events'
 
 export default function EventDetail() {
   const id = Number(useParams().id)
   const { user } = useAuth()
-  const { data: event, error, loading, reload, setData } = useLoad(() => api.event(id), [id, user?.id])
+  const { data: event, error, loading, reload, refresh, setData } = useLoad(() => api.event(id), [id, user?.id])
+  useLive(refresh, (ids) => ids.has(id))
   usePageTitle(event?.title ?? (error ? 'Event not found' : null))
 
   if (loading && !event) return <Loading />

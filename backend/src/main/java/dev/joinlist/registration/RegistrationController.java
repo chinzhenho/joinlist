@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.OptionalLong;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -93,9 +94,29 @@ public class RegistrationController {
     public CheckIn checkIn(@PathVariable long eventId, @AuthenticationPrincipal Jwt jwt,
                            @Valid @RequestBody CheckInRequest req) {
         events.requireOwned(eventId, TokenService.userId(jwt));
-        long registrationId = qr.verify(req.token())
-                .orElseThrow(() -> ApiException.badRequest("invalid_qr", "This QR code isn't valid."));
+        long registrationId = findByCode(eventId, req.token())
+                .orElseThrow(() -> ApiException.badRequest("invalid_code",
+                        "That code doesn't match anyone registered for this event."));
         return registrations.checkIn(eventId, registrationId);
+    }
+
+    /**
+     * Short codes can't be turned back into a registration id, so we work out the code for each person
+     * registered for this event and compare. One HMAC takes about a microsecond, so even 10,000 people is quick.
+     */
+    private OptionalLong findByCode(long eventId, String input) {
+        if (input != null && input.contains(".")) {
+            return qr.verifyOldToken(input); // old long format
+        }
+        String code = qr.normalize(input);
+        if (code.isEmpty()) {
+            return OptionalLong.empty();
+        }
+        List<Long> ids = db.sql("SELECT id FROM registrations WHERE event_id = ? AND status <> 'CANCELLED'")
+                .param(eventId)
+                .query(Long.class)
+                .list();
+        return ids.stream().filter(id -> qr.matches(id, code)).mapToLong(Long::longValue).findFirst();
     }
 
     /** For when someone's phone is dead: the organizer finds them on the list and taps Check in. */

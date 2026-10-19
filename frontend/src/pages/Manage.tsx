@@ -6,6 +6,7 @@ import { api, ApiError, type Attendee, type EventView } from '../api'
 import { useFeedback, usePageTitle } from '../feedback'
 import { formatDateTime, formatTime } from '../format'
 import { BackLink, Button, Card, Empty, ErrorNote, inputClass, Loading, PhaseBadge, StatusBadge } from '../ui'
+import { useLive } from '../live'
 import { useLoad } from '../useLoad'
 import { SpotsLine } from './Events'
 
@@ -17,6 +18,13 @@ export default function Manage() {
   const id = Number(useParams().id)
   const event = useLoad(() => api.event(id), [id])
   const people = useLoad(() => api.attendees(id), [id])
+  useLive(
+    () => {
+      event.refresh()
+      people.refresh()
+    },
+    (ids) => ids.has(id),
+  )
   usePageTitle(event.data ? `Manage · ${event.data.title}` : 'Manage event')
 
   if (event.loading && !event.data) return <Loading />
@@ -402,11 +410,14 @@ function CheckInBox({ eventId, onCheckedIn }: { eventId: number; onCheckedIn: ()
       )}
       <form onSubmit={submitManual} className="flex gap-2">
         <input
-          className={inputClass}
+          className={`${inputClass} font-mono uppercase tracking-widest placeholder:font-sans placeholder:normal-case placeholder:tracking-normal`}
           value={manual}
           onChange={(e) => setManual(e.target.value)}
-          placeholder="Or type the code under their QR"
+          placeholder="Or type their code, e.g. 8K3F-7QPA"
           aria-label="Check-in code"
+          autoCapitalize="characters"
+          autoComplete="off"
+          spellCheck={false}
         />
         <Button type="submit" variant="secondary" className="shrink-0">
           Check in

@@ -4,6 +4,8 @@ import dev.joinlist.auth.AuthController.AuthResponse;
 import dev.joinlist.auth.AuthController.UserView;
 import dev.joinlist.common.ApiException;
 import dev.joinlist.event.EventService;
+import dev.joinlist.live.EventChanged;
+import org.springframework.context.ApplicationEventPublisher;
 import dev.joinlist.registration.RegistrationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -37,10 +39,12 @@ public class AccountController {
     private final RegistrationService registrations;
     private final EventService events;
     private final TokenService tokens;
+    private final ApplicationEventPublisher publisher;
 
     public AccountController(JdbcClient db, PasswordEncoder passwords, RegistrationService registrations,
-                             EventService events, TokenService tokens) {
+                             EventService events, TokenService tokens, ApplicationEventPublisher publisher) {
         this.tokens = tokens;
+        this.publisher = publisher;
         this.db = db;
         this.passwords = passwords;
         this.registrations = registrations;
@@ -57,6 +61,12 @@ public class AccountController {
     public UserView rename(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody NameChange req) {
         long id = TokenService.userId(jwt);
         db.sql("UPDATE users SET name = ? WHERE id = ?").params(req.name().trim(), id).update();
+        // Organisers looking at an attendee list should see the new name straight away.
+        db.sql("SELECT DISTINCT event_id FROM registrations WHERE user_id = ? AND status <> 'CANCELLED'")
+                .param(id)
+                .query(Long.class)
+                .list()
+                .forEach(eventId -> publisher.publishEvent(new EventChanged(eventId)));
         return db.sql("SELECT id, name, email FROM users WHERE id = ?").param(id).query(UserView.class).single();
     }
 

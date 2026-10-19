@@ -96,9 +96,15 @@ class ApiFlowTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"token\":\"" + token + "\"}"))
                 .andExpect(status().isForbidden());
 
-        // Organizer checks in once; the second scan is refused.
+        // A wrong code is refused.
         mvc.perform(post("/api/events/" + eventId + "/check-in").header("Authorization", organizer)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"token\":\"" + token + "\"}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"token\":\"ABCD-EFGH\"}"))
+                .andExpect(status().isBadRequest());
+
+        // Organizer types the code (lower case, with a space instead of the dash) once; the second scan is refused.
+        String typed = token.toLowerCase().replace("-", " ");
+        mvc.perform(post("/api/events/" + eventId + "/check-in").header("Authorization", organizer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"token\":\"" + typed + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name", is("Gabriel")));
         mvc.perform(post("/api/events/" + eventId + "/check-in").header("Authorization", organizer)

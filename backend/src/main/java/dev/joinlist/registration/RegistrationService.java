@@ -5,6 +5,7 @@ import dev.joinlist.config.JoinlistProperties;
 import dev.joinlist.config.JoinlistProperties.SeatStrategy;
 import dev.joinlist.event.EventRepository;
 import dev.joinlist.event.EventRow;
+import dev.joinlist.live.EventChanged;
 import dev.joinlist.notify.Notice;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -83,6 +84,7 @@ public class RegistrationService {
         if (gotSeat) {
             publisher.publishEvent(new Notice(Notice.Type.REGISTERED, userId, eventId));
         }
+        publisher.publishEvent(new EventChanged(eventId));
         return new Result(id, status);
     }
 
@@ -183,6 +185,7 @@ public class RegistrationService {
                         .update();
             }
         }
+        publisher.publishEvent(new EventChanged(event.id()));
     }
 
     /**
@@ -249,6 +252,7 @@ public class RegistrationService {
                 .query(CheckIn.class)
                 .optional();
         if (done.isPresent()) {
+            publisher.publishEvent(new EventChanged(eventId));
             return done.get();
         }
         Registration reg = find(registrationId)

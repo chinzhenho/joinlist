@@ -1,6 +1,7 @@
 package dev.joinlist.event;
 
 import dev.joinlist.common.ApiException;
+import dev.joinlist.live.EventChanged;
 import dev.joinlist.notify.Notice;
 import dev.joinlist.registration.RegistrationService;
 import jakarta.validation.constraints.Max;
@@ -46,7 +47,7 @@ public class EventService {
         if (!form.startsAt().isAfter(events.now())) {
             throw ApiException.badRequest("starts_in_past", "The event must start in the future.");
         }
-        return db.sql("""
+        long id = db.sql("""
                 INSERT INTO events (organizer_id, title, description, location, starts_at,
                                     registration_opens_at, registration_closes_at, capacity)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""")
@@ -54,6 +55,8 @@ public class EventService {
                         form.startsAt(), form.registrationOpensAt(), form.registrationClosesAt(), form.capacity())
                 .query(Long.class)
                 .single();
+        publisher.publishEvent(new EventChanged(id)); // the organiser's other open tabs see the new draft
+        return id;
     }
 
     @Transactional
@@ -73,6 +76,7 @@ public class EventService {
         if (form.capacity() != event.capacity()) {
             registrations.changeCapacity(event, form.capacity());
         }
+        publisher.publishEvent(new EventChanged(eventId));
     }
 
     @Transactional
@@ -82,6 +86,7 @@ public class EventService {
             throw ApiException.conflict("not_draft", "Only a draft can be published.");
         }
         db.sql("UPDATE events SET status = 'PUBLISHED' WHERE id = ?").param(eventId).update();
+        publisher.publishEvent(new EventChanged(eventId));
     }
 
     /** Stops registration and tells everyone who was confirmed or waiting. Their records are kept. */
@@ -100,6 +105,7 @@ public class EventService {
         for (long userId : people) {
             publisher.publishEvent(new Notice(Notice.Type.EVENT_CANCELLED, userId, eventId));
         }
+        publisher.publishEvent(new EventChanged(eventId));
     }
 
     public EventRow requireOwned(long eventId, long organizerId) {

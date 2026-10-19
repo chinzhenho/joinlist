@@ -7,11 +7,13 @@ import { downloadIcs } from '../calendar'
 import { usePageTitle } from '../feedback'
 import { formatDateTime } from '../format'
 import { buttonClass, Card, Empty, ErrorNote, Loading, PageHeader, PhaseBadge, StatusBadge } from '../ui'
+import { useLive } from '../live'
 import { useLoad } from '../useLoad'
 
 export default function MyRegistrations() {
   usePageTitle('My registrations')
-  const { data, error, loading, reload } = useLoad(api.myRegistrations, [])
+  const { data, error, loading, reload, refresh } = useLoad(api.myRegistrations, [])
+  useLive(refresh)
   const upcoming = data?.filter((i) => i.eventPhase !== 'ended' && i.eventPhase !== 'cancelled') ?? []
   const past = data?.filter((i) => i.eventPhase === 'ended' || i.eventPhase === 'cancelled') ?? []
 
@@ -105,9 +107,11 @@ function RegistrationCard({ item }: { item: MyRegistrationItem }) {
             <>
               <QrImage value={reg.qrToken} />
               <p className="mt-2 text-xs text-muted">Show this at the door. Turn up your screen brightness.</p>
-              <p className="mt-1 text-xs text-muted">
-                Code if scanning fails: <span className="font-mono font-semibold text-ink select-all">{reg.qrToken}</span>
-              </p>
+              <div className="mt-3 rounded-xl bg-stone-100 px-4 py-2 text-center">
+                <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">Check-in code</p>
+                <p className="font-mono text-2xl font-bold tracking-[0.15em] text-ink select-all">{reg.qrToken}</p>
+              </div>
+              <p className="mt-1 text-xs text-muted">If the QR won't scan, read this out to the organiser.</p>
             </>
           )}
         </div>

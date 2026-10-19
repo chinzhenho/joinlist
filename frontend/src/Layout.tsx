@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from './auth'
 import { useFeedback } from './feedback'
+import { useLiveStatus } from './live'
 import { Logo } from './ui'
 
 export const GITHUB_URL = 'https://github.com/chinzhenho/joinlist'
@@ -47,6 +48,7 @@ export default function Layout() {
             )}
           </nav>
           <div className="ml-auto flex items-center gap-2">
+            <LiveBadge />
             {user ? (
               <>
                 <Link
@@ -145,5 +147,25 @@ function Footer() {
         </nav>
       </div>
     </footer>
+  )
+}
+
+/** Shows whether the page is receiving live updates. */
+function LiveBadge() {
+  const status = useLiveStatus()
+  const look = {
+    live: ['bg-emerald-500', 'Live', 'Updates appear here automatically'],
+    connecting: ['bg-amber-400', 'Connecting…', 'Reconnecting for live updates. If the server was asleep, this takes up to a minute.'],
+    offline: ['bg-stone-400', 'Offline', 'Live updates are paused. Reload the page to try again.'],
+  }[status]
+  return (
+    <span className="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium text-muted" title={look[2]} role="status">
+      <span className="relative flex h-2 w-2">
+        {status === 'live' && <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 ${look[0]}`} />}
+        <span className={`relative inline-flex h-2 w-2 rounded-full ${look[0]}`} />
+      </span>
+      <span className="hidden sm:inline">{look[1]}</span>
+      <span className="sr-only sm:hidden">{look[1]}</span>
+    </span>
   )
 }

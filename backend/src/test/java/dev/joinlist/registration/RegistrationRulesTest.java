@@ -127,16 +127,20 @@ class RegistrationRulesTest {
     void checkInWorksOnceAndRejectsFakeCodes() {
         long eventId = data.openEvent(5);
         long reg = service.register(eventId, data.user()).registrationId();
-        String token = qr.create(reg);
+        String shown = qr.create(reg);
 
-        assertThat(qr.verify(token)).hasValue(reg);
+        // Looks like "8K3F-7QPA": 8 easy characters, and typing it lower-case with spaces still works.
+        assertThat(shown).matches("[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{4}-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{4}");
+        String typed = shown.toLowerCase().replace("-", " ");
+        assertThat(qr.matches(reg, qr.normalize(typed))).isTrue();
+        // Another registration's code doesn't match, and look-alike letters are refused, not guessed.
+        assertThat(qr.matches(reg + 1, qr.normalize(shown))).isFalse();
+        assertThat(qr.normalize("0O1I-LLLL")).isEmpty();
+        assertThat(qr.normalize("garbage")).isEmpty();
+
         assertThat(service.checkIn(eventId, reg).checkedInAt()).isNotNull();
         assertThatThrownBy(() -> service.checkIn(eventId, reg))
                 .isInstanceOf(ApiException.class).hasMessageContaining("Already");
-
-        String forged = (reg + 1) + token.substring(token.indexOf('.'));
-        assertThat(qr.verify(forged)).isEmpty();
-        assertThat(qr.verify("garbage")).isEmpty();
     }
 
     @Test

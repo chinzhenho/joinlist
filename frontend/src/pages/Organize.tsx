@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { buttonClass, Empty, ErrorNote, Loading, PageHeader } from '../ui'
 import { usePageTitle } from '../feedback'
+import { useLive } from '../live'
 import { useLoad } from '../useLoad'
 import { EventCard } from './Events'
 
 export default function Organize() {
   usePageTitle('Your events')
-  const { data, error, loading, reload } = useLoad(api.myEvents, [])
+  const { data, error, loading, reload, refresh } = useLoad(api.myEvents, [])
+  useLive(refresh)
 
   return (
     <>
