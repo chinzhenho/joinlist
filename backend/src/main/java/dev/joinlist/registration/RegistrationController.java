@@ -97,4 +97,12 @@ public class RegistrationController {
                 .orElseThrow(() -> ApiException.badRequest("invalid_qr", "This QR code isn't valid."));
         return registrations.checkIn(eventId, registrationId);
     }
+
+    /** For when someone's phone is dead: the organizer finds them on the list and taps Check in. */
+    @PostMapping("/events/{eventId}/registrations/{registrationId}/check-in")
+    public CheckIn checkInByHand(@PathVariable long eventId, @PathVariable long registrationId,
+                                 @AuthenticationPrincipal Jwt jwt) {
+        events.requireOwned(eventId, TokenService.userId(jwt));
+        return registrations.checkIn(eventId, registrationId);
+    }
 }

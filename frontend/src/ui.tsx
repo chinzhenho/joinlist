@@ -1,5 +1,6 @@
-import { CircleAlert, LoaderCircle } from 'lucide-react'
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { ChevronLeft, CircleAlert, Eye, EyeOff, LoaderCircle } from 'lucide-react'
+import { useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import type { Phase } from './api'
 
 export function Logo({ size = 28 }: { size?: number }) {
@@ -50,12 +51,28 @@ export function Button({ variant = 'primary', busy, className = '', children, di
   )
 }
 
-export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+export function Field({
+  label,
+  hint,
+  error,
+  children,
+}: {
+  label: string
+  hint?: string
+  error?: string | null
+  children: ReactNode
+}) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-sm font-medium">{label}</span>
       {children}
-      {hint && <span className="mt-1 block text-xs text-muted">{hint}</span>}
+      {error ? (
+        <span className="mt-1 flex items-center gap-1 text-xs font-medium text-red-700" role="alert">
+          <CircleAlert size={13} aria-hidden /> {error}
+        </span>
+      ) : (
+        hint && <span className="mt-1 block text-xs text-muted">{hint}</span>
+      )}
     </label>
   )
 }
@@ -136,6 +153,44 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
         {subtitle && <p className="mt-1 text-[15px] text-muted">{subtitle}</p>}
       </div>
       {action}
+    </div>
+  )
+}
+
+/**
+ * "← Back". Goes to the previous page if the visitor came from inside Joinlist,
+ * otherwise (opened from a shared link) to a sensible page.
+ */
+export function BackLink({ fallback, label = 'Back' }: { fallback: string; label?: string }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const cameFromApp = location.key !== 'default'
+  return (
+    <button
+      type="button"
+      onClick={() => (cameFromApp ? navigate(-1) : navigate(fallback))}
+      className="mb-5 inline-flex min-h-9 items-center gap-1 rounded-lg pr-2 text-sm font-medium text-muted hover:text-ink"
+    >
+      <ChevronLeft size={18} aria-hidden /> {label}
+    </button>
+  )
+}
+
+/** Password field with a show/hide button. */
+export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
+  const [shown, setShown] = useState(false)
+  return (
+    <div className="relative">
+      <input {...props} type={shown ? 'text' : 'password'} className={`${inputClass} pr-12`} />
+      <button
+        type="button"
+        onClick={() => setShown(!shown)}
+        className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-muted hover:text-ink"
+        aria-label={shown ? 'Hide password' : 'Show password'}
+        aria-pressed={shown}
+      >
+        {shown ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
+      </button>
     </div>
   )
 }

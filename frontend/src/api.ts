@@ -119,6 +119,10 @@ export const api = {
   login: (email: string, password: string) =>
     request<{ token: string; user: User }>('POST', '/api/auth/login', { email, password }),
   me: () => request<User>('GET', '/api/me'),
+  rename: (name: string) => request<User>('PATCH', '/api/me', { name }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ token: string; user: User }>('POST', '/api/me/password', { currentPassword, newPassword }),
+  deleteAccount: (password: string) => request<void>('DELETE', '/api/me', { password }),
 
   events: () => request<EventView[]>('GET', '/api/events'),
   event: (id: number) => request<EventView>('GET', `/api/events/${id}`),
@@ -138,6 +142,12 @@ export const api = {
     request<{ registrationId: number; name: string; checkedInAt: string }>('POST', `/api/events/${eventId}/check-in`, {
       token,
     }),
+
+  checkInByHand: (eventId: number, registrationId: number) =>
+    request<{ registrationId: number; name: string; checkedInAt: string }>(
+      'POST',
+      `/api/events/${eventId}/registrations/${registrationId}/check-in`,
+    ),
 
   async downloadAttendeesCsv(eventId: number) {
     const res = await fetch(`${API_URL}/api/events/${eventId}/attendees.csv`, {

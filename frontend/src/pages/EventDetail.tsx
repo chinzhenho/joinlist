@@ -1,10 +1,12 @@
-import { CalendarClock, Check, ChevronLeft, Clock, Copy, MapPin, Settings2, Users } from 'lucide-react'
+import { CalendarClock, CalendarPlus, Check, Clock, Copy, MapPin, Navigation, Settings2, Users } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type EventView } from '../api'
 import { useAuth } from '../auth'
+import { downloadIcs, mapsUrl } from '../calendar'
+import { useFeedback, usePageTitle } from '../feedback'
 import { formatDateTime } from '../format'
-import { Button, Card, ErrorNote, Loading, PhaseBadge, StatusBadge } from '../ui'
+import { BackLink, Button, buttonClass, Card, ErrorNote, Loading, PhaseBadge, StatusBadge } from '../ui'
 import { useLoad } from '../useLoad'
 import { SpotsLine } from './Events'
 
@@ -12,16 +14,26 @@ export default function EventDetail() {
   const id = Number(useParams().id)
   const { user } = useAuth()
   const { data: event, error, loading, reload, setData } = useLoad(() => api.event(id), [id, user?.id])
+  usePageTitle(event?.title ?? (error ? 'Event not found' : null))
 
   if (loading && !event) return <Loading />
-  if (error) return <ErrorNote message={error.status === 404 ? "This event doesn't exist." : error.message} onRetry={reload} />
+  if (error)
+    return (
+      <div className="mx-auto max-w-md py-10 text-center">
+        <BackLink fallback="/" label="All events" />
+        <ErrorNote
+          message={error.status === 404 ? "This event doesn't exist, or it hasn't been published yet." : error.message}
+          onRetry={error.status === 404 ? undefined : reload}
+        />
+      </div>
+    )
   if (!event) return null
+
+  const live = event.phase !== 'cancelled' && event.phase !== 'ended'
 
   return (
     <div>
-      <Link to="/" className="mb-5 inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-ink">
-        <ChevronLeft size={16} aria-hidden /> All events
-      </Link>
+      <BackLink fallback="/" label="All events" />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
         <div className="space-y-5">
@@ -46,14 +58,31 @@ export default function EventDetail() {
                 }
               />
             </dl>
+            {live && (
+              <div className="mt-6 flex flex-wrap gap-2">
+                <button onClick={() => downloadIcs(event)} className={`${buttonClass.secondary} min-h-10 text-sm`}>
+                  <CalendarPlus size={16} aria-hidden /> Add to calendar
+                </button>
+                <a
+                  href={mapsUrl(event.location)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`${buttonClass.secondary} min-h-10 text-sm`}
+                >
+                  <Navigation size={16} aria-hidden /> Open in Maps
+                </a>
+              </div>
+            )}
           </div>
 
-          {event.description && (
-            <Card className="p-6">
-              <h2 className="mb-2 text-lg font-semibold">About this event</h2>
+          <Card className="p-6">
+            <h2 className="mb-2 text-lg font-semibold">About this event</h2>
+            {event.description ? (
               <p className="text-[15px] leading-relaxed whitespace-pre-line text-ink/90">{event.description}</p>
-            </Card>
-          )}
+            ) : (
+              <p className="text-[15px] text-muted">The organiser hasn't added a description.</p>
+            )}
+          </Card>
         </div>
 
         <aside className="space-y-3 lg:sticky lg:top-24">
@@ -78,17 +107,20 @@ export default function EventDetail() {
 
 function JoinBox({ event, onChange, reload }: { event: EventView; onChange: (e: EventView) => void; reload: () => void }) {
   const { user } = useAuth()
+  const { confirm, toast } = useFeedback()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const mine = event.myRegistration
 
-  async function act(fn: () => Promise<unknown>) {
+  async function act(fn: () => Promise<unknown>, done: (e: EventView) => string) {
     setBusy(true)
     setError(null)
     try {
       await fn()
-      onChange(await api.event(event.id))
+      const updated = await api.event(event.id)
+      onChange(updated)
+      toast(done(updated))
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Something went wrong.')
       reload()
@@ -98,10 +130,11 @@ function JoinBox({ event, onChange, reload }: { event: EventView; onChange: (e: 
   }
 
   if (event.phase === 'cancelled') {
-    return <Notice tone="red">This event was cancelled by the organizer.</Notice>
+    return <Notice tone="red">This event was cancelled by the organiser.</Notice>
   }
 
   if (mine) {
+    const confirmed = mine.status === 'CONFIRMED'
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -113,28 +146,44 @@ function JoinBox({ event, onChange, reload }: { event: EventView; onChange: (e: 
           )}
         </div>
         <p className="text-[15px]">
-          {mine.status === 'CONFIRMED'
+          {confirmed
             ? 'You have a spot. Show your QR code at the door.'
             : `You're #${mine.waitlistPosition} on the waitlist. If someone cancels, you'll get their spot and an email.`}
         </p>
-        <div className="flex flex-wrap gap-2">
-          {mine.status === 'CONFIRMED' && (
-            <Button onClick={() => navigate('/my')} className="flex-1">
+        <div className="flex flex-col gap-2">
+          {confirmed && (
+            <Button onClick={() => navigate('/my')} className="w-full">
               Show my QR code
             </Button>
           )}
-          {event.phase !== 'ended' && (
+          {event.phase !== 'ended' && !mine.checkedInAt && (
             <Button
               variant="danger"
               busy={busy}
-              className="flex-1"
-              onClick={() => {
-                if (confirm(mine.status === 'CONFIRMED' ? 'Give up your spot?' : 'Leave the waitlist?')) {
-                  act(() => api.leave(mine.id))
-                }
+              className="w-full"
+              onClick={async () => {
+                const ok = await confirm(
+                  confirmed
+                    ? {
+                        title: 'Give up your spot?',
+                        message:
+                          'Your spot goes to the next person on the waitlist straight away. If you change your mind, you may have to wait.',
+                        confirmLabel: 'Give up my spot',
+                        cancelLabel: 'Keep my spot',
+                        danger: true,
+                      }
+                    : {
+                        title: 'Leave the waitlist?',
+                        message: 'You will lose your place in line.',
+                        confirmLabel: 'Leave waitlist',
+                        cancelLabel: 'Stay',
+                        danger: true,
+                      },
+                )
+                if (ok) act(() => api.leave(mine.id), () => (confirmed ? 'Your spot was cancelled' : 'You left the waitlist'))
               }}
             >
-              {mine.status === 'CONFIRMED' ? 'Cancel my spot' : 'Leave waitlist'}
+              {confirmed ? 'Cancel my spot' : 'Leave waitlist'}
             </Button>
           )}
         </div>
@@ -153,23 +202,39 @@ function JoinBox({ event, onChange, reload }: { event: EventView; onChange: (e: 
       <Button
         className="w-full"
         busy={busy}
-        onClick={() => (user ? act(() => api.join(event.id)) : navigate('/login', { state: { from: `/events/${event.id}` } }))}
+        onClick={() =>
+          user
+            ? act(
+                () => api.join(event.id),
+                (e) =>
+                  e.myRegistration?.status === 'CONFIRMED'
+                    ? "You're in! Your QR code is in My registrations."
+                    : `You're #${e.myRegistration?.waitlistPosition} on the waitlist`,
+              )
+            : navigate('/login', { state: { from: `/events/${event.id}` } })
+        }
       >
         <Users size={18} aria-hidden /> {full ? 'Join the waitlist' : 'Register'}
       </Button>
-      {full && <p className="text-center text-xs text-muted">It's full right now. You'll get a spot automatically if someone cancels.</p>}
+      <p className="text-center text-xs text-muted">
+        {!user
+          ? "You'll be asked to log in or sign up first."
+          : full
+            ? "It's full right now. You'll get a spot automatically if someone cancels."
+            : `Free. Registration closes ${formatDateTime(event.registrationClosesAt)}.`}
+      </p>
       {error && <ErrorNote message={error} />}
     </div>
   )
 }
 
-function Notice({ children, tone = 'muted' }: { children: React.ReactNode; tone?: 'muted' | 'red' }) {
+function Notice({ children, tone = 'muted' }: { children: ReactNode; tone?: 'muted' | 'red' }) {
   const look = tone === 'red' ? 'border-red-200 bg-red-50 text-red-800' : 'border-line bg-stone-50 text-muted'
   return <div className={`rounded-xl border p-4 text-center text-[15px] ${look}`}>{children}</div>
 }
 
 function ShareLink() {
-  const [copied, setCopied] = useState(false)
+  const { toast } = useFeedback()
   return (
     <button
       onClick={async () => {
@@ -177,8 +242,7 @@ function ShareLink() {
           if (navigator.share) await navigator.share({ url: location.href })
           else {
             await navigator.clipboard.writeText(location.href)
-            setCopied(true)
-            setTimeout(() => setCopied(false), 2000)
+            toast('Link copied')
           }
         } catch {
           // Share sheet closed: nothing to do.
@@ -186,8 +250,7 @@ function ShareLink() {
       }}
       className="flex w-full items-center justify-center gap-2 py-2 text-sm font-medium text-muted hover:text-ink"
     >
-      {copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}
-      {copied ? 'Link copied' : 'Share this event'}
+      <Copy size={16} aria-hidden /> Share this event
     </button>
   )
 }

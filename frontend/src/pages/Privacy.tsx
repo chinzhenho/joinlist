@@ -1,9 +1,13 @@
 import type { ReactNode } from 'react'
-import { GITHUB_URL } from '../Layout'
+import { usePageTitle } from '../feedback'
+import { Link } from 'react-router-dom'
+import { BackLink } from '../ui'
 
 export default function Privacy() {
+  usePageTitle('Privacy')
   return (
     <article className="mx-auto max-w-2xl">
+      <BackLink fallback="/" />
       <h1 className="text-3xl font-bold tracking-tight">Privacy</h1>
       <p className="mt-2 text-sm text-muted">Last updated 19 October 2026</p>
 
@@ -28,11 +32,11 @@ export default function Privacy() {
         Up to 12 months after an event, then it's deleted.
       </Block>
       <Block title="Your choices">
-        To have your account and data deleted, contact us through the project page on{' '}
-        <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="font-semibold text-brand hover:underline">
-          GitHub
-        </a>
-        .
+        You can change your name and password, or delete your account, on your{' '}
+        <Link to="/account" className="font-semibold text-brand hover:underline">
+          account page
+        </Link>
+        . Deleting it removes your name and email, and your spots go to the next person on each waitlist.
       </Block>
       <p className="mt-10 rounded-xl bg-stone-100 p-4 text-sm text-muted">
         Joinlist is a student portfolio project. Please don't use it for events where data protection is critical.

@@ -142,6 +142,15 @@ public class RegistrationService {
 
     @Transactional
     public void cancel(long registrationId, long userId) {
+        cancel(registrationId, userId, true);
+    }
+
+    /**
+     * @param enforceCutoff false only when an account is being deleted: the person is leaving for good,
+     *                      so their seat should go to the waitlist even close to the start.
+     */
+    @Transactional
+    public void cancel(long registrationId, long userId, boolean enforceCutoff) {
         Registration reg = find(registrationId)
                 .filter(r -> r.userId() == userId)
                 .orElseThrow(() -> ApiException.notFound("Registration"));
@@ -156,7 +165,7 @@ public class RegistrationService {
         if (EventRow.CANCELLED.equals(event.status())) {
             throw ApiException.conflict("event_cancelled", "This event was cancelled.");
         }
-        if (events.now().isAfter(event.startsAt().minus(cancelCutoff))) {
+        if (enforceCutoff && events.now().isAfter(event.startsAt().minus(cancelCutoff))) {
             throw ApiException.conflict("too_late",
                     "You can't cancel less than " + cancelCutoff.toHours() + " hours before the event.");
         }

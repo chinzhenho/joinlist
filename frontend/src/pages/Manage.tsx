@@ -1,35 +1,51 @@
-import { Camera, CameraOff, Check, ChevronLeft, Download, ExternalLink, Pencil, Users, X } from 'lucide-react'
+import { Camera, CameraOff, Check, Copy, Download, ExternalLink, Pencil, Search, Users, X } from 'lucide-react'
 import QrScanner from 'qr-scanner'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError, type Attendee, type EventView } from '../api'
+import { useFeedback, usePageTitle } from '../feedback'
 import { formatDateTime, formatTime } from '../format'
-import { Button, Card, Empty, ErrorNote, inputClass, Loading, PhaseBadge, StatusBadge } from '../ui'
+import { BackLink, Button, Card, Empty, ErrorNote, inputClass, Loading, PhaseBadge, StatusBadge } from '../ui'
 import { useLoad } from '../useLoad'
 import { SpotsLine } from './Events'
 
-/** Organizer view of one event: publish/cancel, attendee list, CSV, and check-in at the door. */
+const linkButton =
+  'inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-3 text-sm font-semibold whitespace-nowrap shadow-sm hover:bg-paper'
+
+/** Organiser view of one event: publish/cancel, attendee list, CSV, and check-in at the door. */
 export default function Manage() {
   const id = Number(useParams().id)
   const event = useLoad(() => api.event(id), [id])
   const people = useLoad(() => api.attendees(id), [id])
+  usePageTitle(event.data ? `Manage · ${event.data.title}` : 'Manage event')
 
   if (event.loading && !event.data) return <Loading />
-  if (event.error) return <ErrorNote message={event.error.message} onRetry={event.reload} />
+  if (event.error)
+    return (
+      <div className="mx-auto max-w-md">
+        <BackLink fallback="/organize" label="Your events" />
+        <ErrorNote message={event.error.message} onRetry={event.reload} />
+      </div>
+    )
   if (!event.data) return null
   const e = event.data
-  if (!e.isOrganizer) return <ErrorNote message="Only the organizer can manage this event." />
+  if (!e.isOrganizer)
+    return (
+      <div className="mx-auto max-w-md">
+        <BackLink fallback="/" />
+        <ErrorNote message="Only the organiser can manage this event." />
+      </div>
+    )
 
   const refresh = () => {
     event.reload()
     people.reload()
   }
+  const canCheckIn = e.status === 'PUBLISHED' && e.phase !== 'ended'
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Link to="/organize" className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-ink">
-        <ChevronLeft size={16} aria-hidden /> Your events
-      </Link>
+      <BackLink fallback="/organize" label="Your events" />
       <div>
         <PhaseBadge phase={e.phase} />
         <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{e.title}</h1>
@@ -49,39 +65,24 @@ export default function Manage() {
         <EventActions event={e} onChange={(updated) => event.setData(updated)} />
       </Card>
 
-      {e.status === 'PUBLISHED' && e.phase !== 'ended' && <CheckInBox eventId={e.id} onCheckedIn={refresh} />}
+      {canCheckIn && <CheckInBox eventId={e.id} onCheckedIn={refresh} />}
 
-      <Card className="p-0">
-        <div className="flex items-center justify-between border-b border-line px-5 py-3">
-          <h2 className="font-semibold">People</h2>
-          <button
-            onClick={() => api.downloadAttendeesCsv(e.id).catch((err) => alert(err.message))}
-            className="flex items-center gap-1.5 text-sm font-medium text-brand"
-          >
-            <Download size={16} aria-hidden /> CSV
-          </button>
-        </div>
-        {people.loading && !people.data && <Loading />}
-        {people.error && (
-          <div className="p-4">
-            <ErrorNote message={people.error.message} onRetry={people.reload} />
-          </div>
-        )}
-        {people.data && <AttendeeList people={people.data} />}
-      </Card>
+      <PeopleCard event={e} people={people.data} loading={people.loading} error={people.error} onRetry={people.reload} onChange={refresh} canCheckIn={canCheckIn} />
     </div>
   )
 }
 
 function EventActions({ event: e, onChange }: { event: EventView; onChange: (e: EventView) => void }) {
+  const { confirm, toast } = useFeedback()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  async function run(name: string, fn: () => Promise<EventView>) {
+  async function run(name: string, fn: () => Promise<EventView>, done: string) {
     setBusy(name)
     setError(null)
     try {
       onChange(await fn())
+      toast(done)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong.')
     } finally {
@@ -89,39 +90,70 @@ function EventActions({ event: e, onChange }: { event: EventView; onChange: (e: 
     }
   }
 
+  const publicUrl = `${location.origin}/events/${e.id}`
+
   return (
     <>
       <div className="flex flex-wrap gap-2">
         {e.status === 'DRAFT' && (
-          <Button busy={busy === 'publish'} onClick={() => run('publish', () => api.publishEvent(e.id))} className="flex-1 px-3 text-sm">
+          <Button
+            busy={busy === 'publish'}
+            className="flex-1 px-3 text-sm"
+            onClick={async () => {
+              const ok = await confirm({
+                title: 'Publish this event?',
+                message: 'Anyone with the link can see it, and people can register once registration opens.',
+                confirmLabel: 'Publish',
+                cancelLabel: 'Not yet',
+              })
+              if (ok) run('publish', () => api.publishEvent(e.id), 'Published. Share the link to get sign-ups.')
+            }}
+          >
             Publish
           </Button>
         )}
-        {e.status !== 'CANCELLED' && (
-          <Link
-            to={`/organize/${e.id}/edit`}
-            className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-3 text-sm font-semibold whitespace-nowrap hover:bg-paper"
-          >
+        {e.status !== 'CANCELLED' && e.phase !== 'ended' && (
+          <Link to={`/organize/${e.id}/edit`} className={linkButton}>
             <Pencil size={16} aria-hidden /> Edit
           </Link>
         )}
         {e.status === 'PUBLISHED' && (
-          <Link
-            to={`/events/${e.id}`}
-            className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-3 text-sm font-semibold whitespace-nowrap hover:bg-paper"
-          >
-            <ExternalLink size={16} aria-hidden /> View
-          </Link>
+          <>
+            <button
+              className={linkButton}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(publicUrl)
+                  toast('Link copied. Paste it in your group chat.')
+                } catch {
+                  toast(publicUrl)
+                }
+              }}
+            >
+              <Copy size={16} aria-hidden /> Copy link
+            </button>
+            <Link to={`/events/${e.id}`} className={linkButton}>
+              <ExternalLink size={16} aria-hidden /> View
+            </Link>
+          </>
         )}
-        {e.status !== 'CANCELLED' && (
+        {e.status !== 'CANCELLED' && e.phase !== 'ended' && (
           <Button
             variant="danger"
             busy={busy === 'cancel'}
             className="flex-1 px-3 text-sm"
-            onClick={() => {
-              if (confirm('Cancel this event? Everyone registered or waiting will get an email. This cannot be undone.')) {
-                run('cancel', () => api.cancelEvent(e.id))
-              }
+            onClick={async () => {
+              const ok = await confirm({
+                title: 'Cancel this event?',
+                message:
+                  e.status === 'DRAFT'
+                    ? 'Nobody has seen it yet. It will be marked as cancelled.'
+                    : 'Registration stops and everyone who registered or is waiting gets an email. This cannot be undone.',
+                confirmLabel: 'Cancel event',
+                cancelLabel: 'Keep it',
+                danger: true,
+              })
+              if (ok) run('cancel', () => api.cancelEvent(e.id), 'Event cancelled')
             }}
           >
             Cancel event
@@ -129,31 +161,122 @@ function EventActions({ event: e, onChange }: { event: EventView; onChange: (e: 
         )}
       </div>
       {e.status === 'DRAFT' && <p className="text-xs text-muted">Only you can see a draft. Publish it to let people register.</p>}
+      {e.status === 'CANCELLED' && <p className="text-xs text-muted">This event was cancelled. The list below is kept for your records.</p>}
       {error && <ErrorNote message={error} />}
     </>
   )
 }
 
-function AttendeeList({ people }: { people: Attendee[] }) {
+function PeopleCard({
+  event: e,
+  people,
+  loading,
+  error,
+  onRetry,
+  onChange,
+  canCheckIn,
+}: {
+  event: EventView
+  people: Attendee[] | null
+  loading: boolean
+  error: ApiError | null
+  onRetry: () => void
+  onChange: () => void
+  canCheckIn: boolean
+}) {
+  const { toast } = useFeedback()
+  return (
+    <Card className="p-0">
+      <div className="flex items-center justify-between border-b border-line px-5 py-3">
+        <h2 className="font-semibold">People</h2>
+        <button
+          onClick={() => api.downloadAttendeesCsv(e.id).catch((err) => toast(err.message, 'error'))}
+          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-brand hover:bg-brand-soft"
+          disabled={!people || people.length === 0}
+        >
+          <Download size={16} aria-hidden /> Download CSV
+        </button>
+      </div>
+      {loading && !people && <Loading />}
+      {error && (
+        <div className="p-4">
+          <ErrorNote message={error.message} onRetry={onRetry} />
+        </div>
+      )}
+      {people && <AttendeeList eventId={e.id} people={people} onChange={onChange} canCheckIn={canCheckIn} />}
+    </Card>
+  )
+}
+
+function AttendeeList({
+  eventId,
+  people,
+  onChange,
+  canCheckIn,
+}: {
+  eventId: number
+  people: Attendee[]
+  onChange: () => void
+  canCheckIn: boolean
+}) {
+  const { confirm, toast } = useFeedback()
   const [tab, setTab] = useState<'CONFIRMED' | 'WAITLISTED' | 'CANCELLED'>('CONFIRMED')
-  const shown = people.filter((p) => p.status === tab)
+  const [query, setQuery] = useState('')
+  const [busyId, setBusyId] = useState<number | null>(null)
+
+  const q = query.trim().toLowerCase()
+  const inTab = people.filter((p) => p.status === tab)
+  const shown = q ? inTab.filter((p) => p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q)) : inTab
   const count = (s: string) => people.filter((p) => p.status === s).length
   const checkedIn = people.filter((p) => p.checkedInAt).length
 
+  async function checkInByHand(p: Attendee) {
+    const ok = await confirm({
+      title: `Check in ${p.name}?`,
+      message: 'Use this when their QR code can’t be scanned, for example if their phone is dead.',
+      confirmLabel: 'Check in',
+    })
+    if (!ok) return
+    setBusyId(p.registrationId)
+    try {
+      await api.checkInByHand(eventId, p.registrationId)
+      toast(`${p.name} is checked in`)
+      onChange()
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Something went wrong.', 'error')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <>
-      <div className="flex gap-1 border-b border-line px-3 py-2 text-sm" role="tablist">
-        {(['CONFIRMED', 'WAITLISTED', 'CANCELLED'] as const).map((s) => (
-          <button
-            key={s}
-            role="tab"
-            aria-selected={tab === s}
-            onClick={() => setTab(s)}
-            className={`rounded-lg px-3 py-1.5 font-medium ${tab === s ? 'bg-brand-soft text-brand' : 'text-muted'}`}
-          >
-            {s === 'CONFIRMED' ? 'Confirmed' : s === 'WAITLISTED' ? 'Waitlist' : 'Cancelled'} ({count(s)})
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
+        <div className="flex gap-1 text-sm" role="tablist">
+          {(['CONFIRMED', 'WAITLISTED', 'CANCELLED'] as const).map((s) => (
+            <button
+              key={s}
+              role="tab"
+              aria-selected={tab === s}
+              onClick={() => setTab(s)}
+              className={`rounded-lg px-3 py-1.5 font-medium ${tab === s ? 'bg-brand-soft text-brand' : 'text-muted hover:text-ink'}`}
+            >
+              {s === 'CONFIRMED' ? 'Confirmed' : s === 'WAITLISTED' ? 'Waitlist' : 'Cancelled'} ({count(s)})
+            </button>
+          ))}
+        </div>
+        {people.length > 0 && (
+          <label className="relative ml-auto w-full sm:w-56">
+            <Search size={16} className="absolute top-1/2 left-3 -translate-y-1/2 text-muted" aria-hidden />
+            <input
+              className={`${inputClass} min-h-9 py-1.5 pl-9 text-sm`}
+              value={query}
+              onChange={(ev) => setQuery(ev.target.value)}
+              placeholder="Search name or email"
+              aria-label="Search people"
+            />
+          </label>
+        )}
       </div>
       {tab === 'CONFIRMED' && count('CONFIRMED') > 0 && (
         <p className="px-5 pt-3 text-xs text-muted">
@@ -161,12 +284,16 @@ function AttendeeList({ people }: { people: Attendee[] }) {
         </p>
       )}
       {shown.length === 0 ? (
-        <Empty icon={<Users size={28} />} title="Nobody here yet" />
+        <Empty icon={<Users size={28} />} title={q ? 'No one matches that search' : 'Nobody here yet'}>
+          {!q && tab === 'CONFIRMED' && 'Share the event link to get sign-ups.'}
+        </Empty>
       ) : (
         <ul className="divide-y divide-line">
-          {shown.map((p, i) => (
+          {shown.map((p) => (
             <li key={p.registrationId} className="flex items-center gap-3 px-5 py-3">
-              {tab === 'WAITLISTED' && <span className="w-6 text-sm text-muted">#{i + 1}</span>}
+              {tab === 'WAITLISTED' && (
+                <span className="w-7 text-sm text-muted">#{inTab.indexOf(p) + 1}</span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{p.name}</p>
                 <p className="truncate text-xs text-muted">{p.email}</p>
@@ -175,6 +302,15 @@ function AttendeeList({ people }: { people: Attendee[] }) {
                 <span className="flex items-center gap-1 text-xs font-semibold text-brand">
                   <Check size={14} aria-hidden /> {formatTime(p.checkedInAt)}
                 </span>
+              ) : tab === 'CONFIRMED' && canCheckIn ? (
+                <Button
+                  variant="secondary"
+                  className="min-h-9 px-3 text-sm"
+                  busy={busyId === p.registrationId}
+                  onClick={() => checkInByHand(p)}
+                >
+                  Check in
+                </Button>
               ) : (
                 <StatusBadge status={p.status} />
               )}
@@ -238,9 +374,16 @@ function CheckInBox({ eventId, onCheckedIn }: { eventId: number; onCheckedIn: ()
 
   return (
     <Card className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold">Check in at the door</h2>
-        <Button variant={scanning ? 'secondary' : 'primary'} onClick={() => setScanning(!scanning)} className="min-h-9 px-3 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="font-semibold">Check in at the door</h2>
+          <p className="text-xs text-muted">Scan each person's QR code. A code only works once.</p>
+        </div>
+        <Button
+          variant={scanning ? 'secondary' : 'primary'}
+          onClick={() => setScanning(!scanning)}
+          className="min-h-9 shrink-0 px-3 text-sm"
+        >
           {scanning ? <CameraOff size={16} aria-hidden /> : <Camera size={16} aria-hidden />}
           {scanning ? 'Stop' : 'Scan QR'}
         </Button>
@@ -262,10 +405,10 @@ function CheckInBox({ eventId, onCheckedIn }: { eventId: number; onCheckedIn: ()
           className={inputClass}
           value={manual}
           onChange={(e) => setManual(e.target.value)}
-          placeholder="Or type the code"
+          placeholder="Or type the code under their QR"
           aria-label="Check-in code"
         />
-        <Button type="submit" variant="secondary">
+        <Button type="submit" variant="secondary" className="shrink-0">
           Check in
         </Button>
       </form>

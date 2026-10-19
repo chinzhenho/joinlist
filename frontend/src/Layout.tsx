@@ -2,12 +2,14 @@ import { CalendarDays, LogOut, Settings2, Ticket } from 'lucide-react'
 import { useEffect } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from './auth'
+import { useFeedback } from './feedback'
 import { Logo } from './ui'
 
 export const GITHUB_URL = 'https://github.com/chinzhenho/joinlist'
 
 export default function Layout() {
   const { user, signOut } = useAuth()
+  const { toast } = useFeedback()
   const navigate = useNavigate()
   const { pathname } = useLocation()
 
@@ -47,16 +49,24 @@ export default function Layout() {
           <div className="ml-auto flex items-center gap-2">
             {user ? (
               <>
-                <span className="hidden max-w-40 truncate text-sm text-muted md:inline">{user.name}</span>
-                <span
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-soft text-sm font-bold text-brand"
-                  aria-hidden
+                <Link
+                  to="/account"
+                  className="flex items-center gap-2 rounded-full py-1 pr-1 pl-1 hover:bg-stone-100 md:pr-3"
+                  title="Your account"
                 >
-                  {user.name.trim().charAt(0).toUpperCase()}
-                </span>
+                  <span
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-soft text-sm font-bold text-brand"
+                    aria-hidden
+                  >
+                    {user.name.trim().charAt(0).toUpperCase()}
+                  </span>
+                  <span className="hidden max-w-40 truncate text-sm font-medium md:inline">{user.name}</span>
+                  <span className="sr-only md:hidden">Your account</span>
+                </Link>
                 <button
                   onClick={() => {
                     signOut()
+                    toast('Logged out')
                     navigate('/')
                   }}
                   className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted hover:text-ink"

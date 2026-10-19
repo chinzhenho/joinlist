@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
+import { FeedbackProvider } from './feedback'
 import Layout from './Layout'
+import Account from './pages/Account'
 import EventDetail from './pages/EventDetail'
 import EventFormPage from './pages/EventFormPage'
 import Events from './pages/Events'
@@ -25,6 +27,7 @@ function RequireLogin({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <AuthProvider>
+      <FeedbackProvider>
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
@@ -36,12 +39,14 @@ export default function App() {
             <Route path="organize/new" element={<RequireLogin><EventFormPage /></RequireLogin>} />
             <Route path="organize/:id" element={<RequireLogin><Manage /></RequireLogin>} />
             <Route path="organize/:id/edit" element={<RequireLogin><EventFormPage /></RequireLogin>} />
+            <Route path="account" element={<RequireLogin><Account /></RequireLogin>} />
             <Route path="how-it-works" element={<HowItWorks />} />
             <Route path="privacy" element={<Privacy />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </BrowserRouter>
+      </FeedbackProvider>
     </AuthProvider>
   )
 }

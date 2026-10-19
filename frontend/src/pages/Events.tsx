@@ -4,10 +4,12 @@ import { api, type EventView } from '../api'
 import { useAuth } from '../auth'
 import { formatTime } from '../format'
 import { buttonClass, Empty, ErrorNote, Loading, PageHeader, PhaseBadge } from '../ui'
+import { usePageTitle } from '../feedback'
 import { useLoad } from '../useLoad'
 
 export default function Events() {
   const { user } = useAuth()
+  usePageTitle(null)
   const { data, error, loading, reload } = useLoad(api.events, [])
 
   return (

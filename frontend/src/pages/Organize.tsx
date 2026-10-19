@@ -2,10 +2,12 @@ import { CalendarPlus, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { buttonClass, Empty, ErrorNote, Loading, PageHeader } from '../ui'
+import { usePageTitle } from '../feedback'
 import { useLoad } from '../useLoad'
 import { EventCard } from './Events'
 
 export default function Organize() {
+  usePageTitle('Your events')
   const { data, error, loading, reload } = useLoad(api.myEvents, [])
 
   return (

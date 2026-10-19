@@ -61,6 +61,14 @@ public class TestData {
         return db.sql("SELECT confirmed_count FROM events WHERE id = ?").param(eventId).query(Integer.class).single();
     }
 
+    public void makeOrganizer(long eventId, long userId) {
+        db.sql("UPDATE events SET organizer_id = ? WHERE id = ?").params(userId, eventId).update();
+    }
+
+    public String eventStatus(long eventId) {
+        return db.sql("SELECT status FROM events WHERE id = ?").param(eventId).query(String.class).single();
+    }
+
     public String status(long registrationId) {
         return db.sql("SELECT status FROM registrations WHERE id = ?").param(registrationId).query(String.class).single();
     }

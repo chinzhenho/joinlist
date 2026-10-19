@@ -2,6 +2,8 @@ package dev.joinlist.config;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -14,8 +16,15 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
@@ -43,8 +52,24 @@ public class SecurityConfig {
     }
 
     @Bean
-    JwtDecoder jwtDecoder(SecretKey signingKey) {
-        return NimbusJwtDecoder.withSecretKey(signingKey).macAlgorithm(MacAlgorithm.HS256).build();
+    JwtDecoder jwtDecoder(SecretKey signingKey, JdbcClient db) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(signingKey).macAlgorithm(MacAlgorithm.HS256).build();
+        // Besides signature and expiry: the token must be newer than the user's last password change,
+        // and the account must still exist.
+        OAuth2TokenValidator<Jwt> stillValid = jwt -> {
+            Instant validAfter = db.sql("SELECT tokens_valid_after FROM users WHERE id = ?")
+                    .param(Long.parseLong(jwt.getSubject()))
+                    .query(OffsetDateTime.class)
+                    .optional()
+                    .map(OffsetDateTime::toInstant)
+                    .orElse(null);
+            if (validAfter == null || jwt.getIssuedAt() == null || jwt.getIssuedAt().isBefore(validAfter)) {
+                return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Please log in again.", null));
+            }
+            return OAuth2TokenValidatorResult.success();
+        };
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefault(), stillValid));
+        return decoder;
     }
 
     @Bean

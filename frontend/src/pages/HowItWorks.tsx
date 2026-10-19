@@ -2,12 +2,15 @@ import { ArrowRight } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth'
-import { buttonClass } from '../ui'
+import { usePageTitle } from '../feedback'
+import { BackLink, buttonClass } from '../ui'
 
 export default function HowItWorks() {
   const { user } = useAuth()
+  usePageTitle('How it works')
   return (
     <article className="mx-auto max-w-2xl">
+      <BackLink fallback="/" />
       <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">How Joinlist works</h1>
       <p className="mt-3 text-lg text-muted">Three steps for organisers, two for everyone else.</p>
 
