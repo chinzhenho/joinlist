@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 class IpProbe {
 
-    @GetMapping("/api/health/ip")
+    @GetMapping("/api/ip-probe")
     Map<String, String> probe(HttpServletRequest req) {
         Map<String, String> out = new LinkedHashMap<>();
         out.put("remoteAddr", req.getRemoteAddr());
