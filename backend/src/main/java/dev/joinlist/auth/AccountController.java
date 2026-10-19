@@ -40,9 +40,12 @@ public class AccountController {
     private final EventService events;
     private final TokenService tokens;
     private final ApplicationEventPublisher publisher;
+    private final TokenCutoffs cutoffs;
 
     public AccountController(JdbcClient db, PasswordEncoder passwords, RegistrationService registrations,
-                             EventService events, TokenService tokens, ApplicationEventPublisher publisher) {
+                             EventService events, TokenService tokens, ApplicationEventPublisher publisher,
+                             TokenCutoffs cutoffs) {
+        this.cutoffs = cutoffs;
         this.tokens = tokens;
         this.publisher = publisher;
         this.db = db;
@@ -80,6 +83,7 @@ public class AccountController {
         db.sql("UPDATE users SET password_hash = ?, tokens_valid_after = ? WHERE id = ?")
                 .params(passwords.encode(req.newPassword()), cutoff, id)
                 .update();
+        cutoffs.forgetAfterCommit(id);
         UserView user = db.sql("SELECT id, name, email FROM users WHERE id = ?").param(id).query(UserView.class).single();
         return new AuthResponse(tokens.issue(id), user);
     }
@@ -123,6 +127,7 @@ public class AccountController {
                 WHERE id = ?""")
                 .param(id)
                 .update();
+        cutoffs.forgetAfterCommit(id);
     }
 
     private void requirePassword(long userId, String password) {

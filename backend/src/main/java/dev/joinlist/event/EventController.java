@@ -35,9 +35,11 @@ public class EventController {
     private final RegistrationService registrations;
     private final QrTokens qr;
     private final JdbcClient db;
+    private final PublicEventCache cache;
 
     public EventController(EventService service, EventRepository events, RegistrationService registrations,
-                           QrTokens qr, JdbcClient db) {
+                           QrTokens qr, JdbcClient db, PublicEventCache cache) {
+        this.cache = cache;
         this.service = service;
         this.events = events;
         this.registrations = registrations;
@@ -57,8 +59,10 @@ public class EventController {
 
     @GetMapping("/events")
     public List<EventView> upcoming() {
-        OffsetDateTime now = OffsetDateTime.now();
-        return events.upcomingPublished().stream().map(e -> view(e, now, null, false)).toList();
+        return cache.list(() -> {
+            OffsetDateTime now = OffsetDateTime.now();
+            return events.upcomingPublished().stream().map(e -> view(e, now, null, false)).toList();
+        });
     }
 
     @GetMapping("/me/events")
@@ -72,11 +76,23 @@ public class EventController {
     @GetMapping("/events/{id}")
     public EventView get(@PathVariable long id, @AuthenticationPrincipal Jwt jwt) {
         Long userId = jwt == null ? null : TokenService.userId(jwt);
+        if (userId == null) {
+            return cache.page(id, () -> publicView(id));
+        }
         EventRow event = events.find(id).orElseThrow(() -> ApiException.notFound("Event"));
         if (EventRow.DRAFT.equals(event.status()) && !event.isOrganizer(userId)) {
             throw ApiException.notFound("Event");
         }
         return view(event, OffsetDateTime.now(), userId, true);
+    }
+
+    /** What a logged-out visitor sees. Drafts don't exist for them. */
+    private EventView publicView(long id) {
+        EventRow event = events.find(id).orElseThrow(() -> ApiException.notFound("Event"));
+        if (EventRow.DRAFT.equals(event.status())) {
+            throw ApiException.notFound("Event");
+        }
+        return view(event, OffsetDateTime.now(), null, true);
     }
 
     public record Created(long id) {}

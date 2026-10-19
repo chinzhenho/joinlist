@@ -79,6 +79,13 @@ public class Mailer {
     }
 
     private void send(Notice notice, String to, String toName, String subject, String text) {
+        // .test and .invalid can never receive mail (they are reserved names). Test accounts and deleted
+        // accounts use them; sending would only bounce and hurt the sender's reputation.
+        String domain = to.substring(to.lastIndexOf('@') + 1).toLowerCase();
+        if (domain.endsWith(".test") || domain.endsWith(".invalid")) {
+            record(notice, "SKIPPED", "test or deleted address");
+            return;
+        }
         var brevoProps = props.brevo();
         if (brevoProps.apiKey() == null || brevoProps.apiKey().isBlank()) {
             log.info("Email not sent (no BREVO_API_KEY): {} -> user {}", subject, notice.userId());
