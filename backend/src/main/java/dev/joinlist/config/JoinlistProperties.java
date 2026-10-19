@@ -17,7 +17,7 @@ public record JoinlistProperties(
 
     public enum SeatStrategy { ATOMIC, PESSIMISTIC }
 
-    public record RateLimit(boolean enabled) {}
+    public record RateLimit(boolean enabled, String clientIpHeader) {}
 
     public record Brevo(String apiKey, String senderEmail, String senderName) {}
 }

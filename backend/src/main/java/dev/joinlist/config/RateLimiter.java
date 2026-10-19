@@ -16,6 +16,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * Simple per-minute limits kept in memory:
  *   - login/sign-up: per IP address (no account yet)
  *   - registering, cancelling, creating events: per account
+ * Who is "one IP": the CF-Connecting-IP header that Cloudflare (in front of Render) sets. Cloudflare refuses
+ * requests that try to set it themselves. X-Forwarded-For is NOT used: anyone can put a fake address at the
+ * front of it, which used to let a password guesser dodge the limit.
  * Known limit: counts live in one server's memory, so they aren't shared if there are several servers.
  * Redis would fix that later.
  */
@@ -29,9 +32,17 @@ public class RateLimiter implements HandlerInterceptor {
 
     private final Map<String, Window> windows = new ConcurrentHashMap<>();
     private final boolean enabled;
+    private final String clientIpHeader;
 
     public RateLimiter(JoinlistProperties props) {
         this.enabled = props.rateLimit().enabled();
+        this.clientIpHeader = props.rateLimit().clientIpHeader();
+    }
+
+    /** The caller's IP: from the trusted proxy header when there is one, otherwise the TCP connection. */
+    String clientIp(HttpServletRequest request) {
+        String fromProxy = clientIpHeader == null || clientIpHeader.isBlank() ? null : request.getHeader(clientIpHeader);
+        return fromProxy != null && !fromProxy.isBlank() ? fromProxy.trim() : request.getRemoteAddr();
     }
 
     @Override
@@ -42,7 +53,7 @@ public class RateLimiter implements HandlerInterceptor {
         String key;
         int limit;
         if (request.getRequestURI().startsWith("/api/auth/")) {
-            key = "ip:" + request.getRemoteAddr();
+            key = "ip:" + clientIp(request);
             limit = AUTH_PER_MINUTE;
         } else if (SecurityContextHolder.getContext().getAuthentication() != null
                 && SecurityContextHolder.getContext().getAuthentication().getPrincipal() instanceof Jwt jwt) {
