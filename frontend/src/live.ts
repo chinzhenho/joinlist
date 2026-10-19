@@ -4,6 +4,9 @@ import { useEffect, useRef, useSyncExternalStore } from 'react'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8080'
 
+/** The server pings every 25 s. Hearing nothing for this long means the connection died without telling us. */
+const SILENCE_LIMIT_MS = 60_000
+
 /** 'all' means "you may have missed something, reload everything" (after a reconnect or coming back to the tab). */
 export type Change = Set<number> | 'all'
 type Listener = (change: Change) => void
@@ -14,6 +17,7 @@ const statusListeners = new Set<() => void>()
 let status: LiveStatus = 'connecting'
 let source: EventSource | null = null
 let connectedBefore = false
+let lastHeard = Date.now()
 
 function setStatus(next: LiveStatus) {
   if (status !== next) {
@@ -28,31 +32,54 @@ function emit(change: Change) {
 
 function connect() {
   if (source || typeof EventSource === 'undefined') return
-  source = new EventSource(`${API_URL}/api/stream`)
-  source.addEventListener('ready', () => {
+  lastHeard = Date.now()
+  const es = new EventSource(`${API_URL}/api/stream`)
+  source = es
+  es.addEventListener('ready', () => {
+    lastHeard = Date.now()
     setStatus('live')
     // On a reconnect, changes made while we were away were never sent to us.
     if (connectedBefore) emit('all')
     connectedBefore = true
   })
-  source.addEventListener('changed', (e) => {
+  es.addEventListener('ping', () => {
+    lastHeard = Date.now()
+  })
+  es.addEventListener('changed', (e) => {
+    lastHeard = Date.now()
     const ids = (e as MessageEvent<string>).data.split(',').map(Number).filter(Number.isFinite)
     emit(new Set(ids))
   })
   // The browser retries by itself; we only show that we're reconnecting.
-  source.onerror = () => setStatus(source?.readyState === EventSource.CLOSED ? 'offline' : 'connecting')
+  es.onerror = () => setStatus(es.readyState === EventSource.CLOSED ? 'offline' : 'connecting')
 }
 
-if (typeof document !== 'undefined') {
-  // Phones pause background tabs. When the tab comes back, catch up.
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      if (source?.readyState === EventSource.CLOSED) {
-        source = null
-        connect()
-      }
-      emit('all')
+/** Throw away the current connection and open a new one (which then reloads everything once it's ready). */
+function reconnect() {
+  source?.close()
+  source = null
+  setStatus('connecting')
+  connect()
+}
+
+if (typeof window !== 'undefined') {
+  // Watchdog: a connection can die silently (server restarted, network changed). Reconnect if it goes quiet.
+  setInterval(() => {
+    if (source && document.visibilityState === 'visible' && Date.now() - lastHeard > SILENCE_LIMIT_MS) {
+      reconnect()
     }
+  }, 10_000)
+
+  // Phones pause background tabs. When the tab comes back, check the connection and catch up.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !source) return
+    if (source.readyState === EventSource.CLOSED || Date.now() - lastHeard > SILENCE_LIMIT_MS) reconnect()
+    else emit('all')
+  })
+
+  // Back online after losing the network (e.g. phone switched from Wi-Fi to data).
+  window.addEventListener('online', () => {
+    if (source) reconnect()
   })
 }
 

@@ -3,6 +3,7 @@ import QrScanner from 'qr-scanner'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError, type Attendee, type EventView } from '../api'
+import { useAuth } from '../auth'
 import { useFeedback, usePageTitle } from '../feedback'
 import { formatDateTime, formatTime } from '../format'
 import { BackLink, Button, Card, Empty, ErrorNote, inputClass, Loading, PhaseBadge, StatusBadge } from '../ui'
@@ -16,8 +17,9 @@ const linkButton =
 /** Organiser view of one event: publish/cancel, attendee list, CSV, and check-in at the door. */
 export default function Manage() {
   const id = Number(useParams().id)
-  const event = useLoad(() => api.event(id), [id])
-  const people = useLoad(() => api.attendees(id), [id])
+  const { user } = useAuth()
+  const event = useLoad(() => api.event(id), [id, user?.id])
+  const people = useLoad(() => api.attendees(id), [id, user?.id])
   useLive(
     () => {
       event.refresh()

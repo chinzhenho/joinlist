@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import { api, getToken, setToken, type User } from './api'
+import { api, getToken, setToken, TOKEN_KEY, type User } from './api'
 
 type Auth = {
   user: User | null
@@ -27,6 +27,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const onLogout = () => setUser(null)
     window.addEventListener('joinlist:logout', onLogout)
     return () => window.removeEventListener('joinlist:logout', onLogout)
+  }, [])
+
+  // All tabs of one browser share the login. If another tab logs in, switches account or logs out,
+  // follow it here too, so this tab never shows one name while acting as someone else.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== TOKEN_KEY) return
+      if (!e.newValue) setUser(null)
+      else api.me().then(setUser).catch(() => setUser(null))
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
   }, [])
 
   const signIn = useCallback((token: string, u: User) => {

@@ -3,6 +3,7 @@ import QRCode from 'qrcode'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type MyRegistrationItem } from '../api'
+import { useAuth } from '../auth'
 import { downloadIcs } from '../calendar'
 import { usePageTitle } from '../feedback'
 import { formatDateTime } from '../format'
@@ -11,8 +12,9 @@ import { useLive } from '../live'
 import { useLoad } from '../useLoad'
 
 export default function MyRegistrations() {
+  const { user } = useAuth()
   usePageTitle('My registrations')
-  const { data, error, loading, reload, refresh } = useLoad(api.myRegistrations, [])
+  const { data, error, loading, reload, refresh } = useLoad(api.myRegistrations, [user?.id])
   useLive(refresh)
   const upcoming = data?.filter((i) => i.eventPhase !== 'ended' && i.eventPhase !== 'cancelled') ?? []
   const past = data?.filter((i) => i.eventPhase === 'ended' || i.eventPhase === 'cancelled') ?? []

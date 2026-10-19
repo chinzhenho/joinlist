@@ -1,6 +1,7 @@
 import { CalendarPlus, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import { useAuth } from '../auth'
 import { buttonClass, Empty, ErrorNote, Loading, PageHeader } from '../ui'
 import { usePageTitle } from '../feedback'
 import { useLive } from '../live'
@@ -8,8 +9,9 @@ import { useLoad } from '../useLoad'
 import { EventCard } from './Events'
 
 export default function Organize() {
+  const { user } = useAuth()
   usePageTitle('Your events')
-  const { data, error, loading, reload, refresh } = useLoad(api.myEvents, [])
+  const { data, error, loading, reload, refresh } = useLoad(api.myEvents, [user?.id])
   useLive(refresh)
 
   return (

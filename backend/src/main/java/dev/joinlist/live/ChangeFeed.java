@@ -81,10 +81,14 @@ public class ChangeFeed {
         broadcast(() -> SseEmitter.event().name("changed").data(data));
     }
 
-    /** A comment line every 25 s keeps idle connections from being closed by proxies along the way. */
+    /**
+     * A "ping" every 25 s. It keeps idle connections from being closed by proxies, and lets the page notice a
+     * connection that died silently (no ping for a minute = reconnect). It's a real event, not an SSE comment,
+     * because browsers don't show comments to the page.
+     */
     @Scheduled(fixedDelay = 25_000)
     void heartbeat() {
-        broadcast(() -> SseEmitter.event().comment("ping"));
+        broadcast(() -> SseEmitter.event().name("ping").data(""));
     }
 
     /**

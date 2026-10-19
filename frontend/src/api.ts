@@ -2,7 +2,7 @@
 // because the frontend and backend are on different sites and Safari blocks cross-site cookies.
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8080'
-const TOKEN_KEY = 'joinlist.token'
+export const TOKEN_KEY = 'joinlist.token'
 
 export type User = { id: number; name: string; email: string }
 
