@@ -3,6 +3,7 @@ package dev.joinlist;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,6 +53,20 @@ class ApiFlowTest {
         mvc.perform(post("/api/events/" + eventId + "/publish").header("Authorization", organizer))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.phase", is("open")));
+
+        // Strangers can't edit or cancel someone else's event, even by calling the API directly.
+        String hijack = eventJson.replace("Intro to Git", "Hacked").replace("\"capacity\": 1", "\"capacity\": 999");
+        mvc.perform(patch("/api/events/" + eventId).header("Authorization", stranger)
+                        .contentType(MediaType.APPLICATION_JSON).content(hijack))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/events/" + eventId + "/cancel").header("Authorization", stranger))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/events/" + eventId + "/cancel"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/events/" + eventId))
+                .andExpect(jsonPath("$.title", is("Intro to Git")))
+                .andExpect(jsonPath("$.capacity", is(1)))
+                .andExpect(jsonPath("$.status", is("PUBLISHED")));
 
         // Not logged in → 401. Logged in → seat.
         mvc.perform(post("/api/events/" + eventId + "/registrations")).andExpect(status().isUnauthorized());
