@@ -113,6 +113,33 @@ What this shows, and what it doesn't:
 
 Raw k6 summaries: `loadtest/results/` (not committed, re-run to reproduce).
 
+### Load test on the live site (free tier)
+
+Run on 19 Oct 2026 against the deployed stack (Render free: 0.1 CPU and 512 MB; Neon free PostgreSQL; both in
+Singapore), with the rate limiter **on**, from one laptop in Malaysia. Scripts: `loadtest/live-site.js` (k6) and
+`loadtest/listeners.mjs`.
+
+At the same time: 100 people browsing (event list and event page, a second apart), 100 open pages listening for
+live updates, and 40 people pressing Register at the same moment for 10 seats.
+
+| What | Result |
+|---|---|
+| Seats | **10 confirmed, 30 waitlisted, counter = rows** (no overbooking) |
+| Failed requests | **0 of 4,254** |
+| Browsing, per page | median 0.6 s, p95 2.3 s, max 7.0 s |
+| Registering during the rush | median 3.9 s, p95 6.9 s, max 9.7 s |
+| Live-update connections | 100 of 100 stayed connected for 8 minutes, and 100 of 100 received the updates |
+
+What this says: correctness and stability held, but the free instance (a tenth of a CPU) is the bottleneck, so
+pages get slow under this much load. The same code answers in well under a second on a laptop (see above).
+Cheap next steps: cache the public event list for a second, and a bigger instance.
+
+### Automated check of a running server
+
+`node scripts/smoke-test.mjs [url]` walks through every feature over the public API (45 checks: sign-up, roles,
+waitlist promotion, capacity changes, check-in codes, CSV, account changes, live updates, cancelling) with
+temporary accounts, then deletes them. Last run on the live site: 45/45 passed.
+
 ## Run it locally
 
 **With Docker**
@@ -165,7 +192,9 @@ SEAT_STRATEGY=pessimistic docker compose up --build   # then run k6 again to com
   without being stored. Check-in is a single conditional `UPDATE`, so a code works once.
 - Every organiser action checks ownership on the server.
 - CSV export neutralises cells starting with `= + - @` (spreadsheet formula injection).
-- Simple per-minute rate limits: sign-up/login per IP, other actions per account.
+- Simple per-minute rate limits: sign-up/login per IP, other actions per account. The IP comes from
+  `CF-Connecting-IP` (set by Cloudflare, which refuses client-supplied values), never from `X-Forwarded-For`,
+  which callers can fake. A test checks a fake header cannot dodge the limit.
 
 ## Known limits (v1)
 
