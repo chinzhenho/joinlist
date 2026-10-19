@@ -1,4 +1,4 @@
-import { Camera, CameraOff, Check, Download, ExternalLink, Pencil, Users, X } from 'lucide-react'
+import { Camera, CameraOff, Check, ChevronLeft, Download, ExternalLink, Pencil, Users, X } from 'lucide-react'
 import QrScanner from 'qr-scanner'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -26,13 +26,22 @@ export default function Manage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-3xl space-y-4">
+      <Link to="/organize" className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-ink">
+        <ChevronLeft size={16} aria-hidden /> Your events
+      </Link>
       <div>
         <PhaseBadge phase={e.phase} />
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">{e.title}</h1>
-        <p className="text-sm text-muted">
+        <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{e.title}</h1>
+        <p className="mt-1 text-[15px] text-muted">
           {formatDateTime(e.startsAt)} · {e.location}
         </p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <Stat label="Confirmed" value={`${e.confirmedCount}/${e.capacity}`} />
+        <Stat label="Waitlist" value={String(e.waitlistCount)} />
+        <Stat label="Checked in" value={people.data ? String(people.data.filter((p) => p.checkedInAt).length) : '–'} />
       </div>
 
       <Card className="space-y-3">
@@ -261,5 +270,14 @@ function CheckInBox({ eventId, onCheckedIn }: { eventId: number; onCheckedIn: ()
         </Button>
       </form>
     </Card>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-line bg-white px-4 py-3 shadow-[0_1px_2px_rgba(37,41,35,0.04)]">
+      <p className="text-xs font-semibold tracking-wide text-muted uppercase">{label}</p>
+      <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
+    </div>
   )
 }

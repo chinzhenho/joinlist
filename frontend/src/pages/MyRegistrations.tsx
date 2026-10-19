@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type MyRegistrationItem } from '../api'
 import { formatDateTime } from '../format'
-import { Card, Empty, ErrorNote, Loading, PhaseBadge, StatusBadge } from '../ui'
+import { Card, Empty, ErrorNote, Loading, PageHeader, PhaseBadge, StatusBadge } from '../ui'
 import { useLoad } from '../useLoad'
 
 export default function MyRegistrations() {
@@ -12,17 +12,19 @@ export default function MyRegistrations() {
 
   return (
     <>
-      <h1 className="mb-5 text-2xl font-bold tracking-tight">My registrations</h1>
+      <PageHeader title="My registrations" subtitle="Your spots, your place on waitlists, and your check-in QR codes." />
       {loading && !data && <Loading />}
       {error && <ErrorNote message={error.message} onRetry={reload} />}
       {data && data.length === 0 && (
-        <Empty icon={<Ticket size={32} />} title="You haven't registered for anything yet">
-          <Link to="/" className="font-semibold text-brand">
-            Browse events
-          </Link>
-        </Empty>
+        <div className="rounded-2xl border border-dashed border-line bg-white/60">
+          <Empty icon={<Ticket size={32} />} title="You haven't registered for anything yet">
+            <Link to="/" className="font-semibold text-brand">
+              Browse events
+            </Link>
+          </Empty>
+        </div>
       )}
-      <ul className="space-y-3">
+      <ul className="grid items-start gap-4 md:grid-cols-2">
         {data?.map((item) => (
           <li key={item.registration.id}>
             <RegistrationCard item={item} />

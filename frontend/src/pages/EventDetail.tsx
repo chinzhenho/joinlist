@@ -1,5 +1,5 @@
-import { CalendarClock, Check, Clock, Copy, MapPin, Settings2, Users } from 'lucide-react'
-import { useState } from 'react'
+import { CalendarClock, Check, ChevronLeft, Clock, Copy, MapPin, Settings2, Users } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type EventView } from '../api'
 import { useAuth } from '../auth'
@@ -18,45 +18,60 @@ export default function EventDetail() {
   if (!event) return null
 
   return (
-    <div className="space-y-4">
-      <div>
-        <PhaseBadge phase={event.phase} />
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">{event.title}</h1>
+    <div>
+      <Link to="/" className="mb-5 inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-ink">
+        <ChevronLeft size={16} aria-hidden /> All events
+      </Link>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
+        <div className="space-y-5">
+          <div className="rounded-3xl border border-line bg-gradient-to-br from-brand-soft/70 via-white to-white p-6 sm:p-8">
+            <PhaseBadge phase={event.phase} />
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-balance sm:text-4xl">{event.title}</h1>
+            <dl className="mt-6 grid gap-4 text-[15px] sm:grid-cols-2">
+              <Fact icon={<CalendarClock size={18} />} label="When" value={formatDateTime(event.startsAt)} />
+              <Fact icon={<MapPin size={18} />} label="Where" value={event.location} />
+              <Fact
+                icon={<Clock size={18} />}
+                label="Registration"
+                value={`${formatDateTime(event.registrationOpensAt)} – ${formatDateTime(event.registrationClosesAt)}`}
+              />
+              <Fact
+                icon={<Users size={18} />}
+                label="Spots"
+                value={
+                  event.spotsLeft === 0
+                    ? `Full · ${event.waitlistCount} waiting`
+                    : `${event.spotsLeft} of ${event.capacity} left`
+                }
+              />
+            </dl>
+          </div>
+
+          {event.description && (
+            <Card className="p-6">
+              <h2 className="mb-2 text-lg font-semibold">About this event</h2>
+              <p className="text-[15px] leading-relaxed whitespace-pre-line text-ink/90">{event.description}</p>
+            </Card>
+          )}
+        </div>
+
+        <aside className="space-y-3 lg:sticky lg:top-24">
+          <Card className="space-y-4">
+            <SpotsLine event={event} />
+            <JoinBox event={event} onChange={setData} reload={reload} />
+          </Card>
+          <ShareLink />
+          {event.isOrganizer && (
+            <Link
+              to={`/organize/${event.id}`}
+              className="flex items-center justify-center gap-2 rounded-xl border border-line bg-white py-3 text-sm font-semibold shadow-sm hover:bg-paper"
+            >
+              <Settings2 size={16} aria-hidden /> Manage this event
+            </Link>
+          )}
+        </aside>
       </div>
-
-      <Card className="space-y-3 text-[15px]">
-        <p className="flex items-center gap-2.5">
-          <CalendarClock size={18} className="text-muted" aria-hidden /> {formatDateTime(event.startsAt)}
-        </p>
-        <p className="flex items-center gap-2.5">
-          <MapPin size={18} className="text-muted" aria-hidden /> {event.location}
-        </p>
-        <p className="flex items-center gap-2.5 text-muted">
-          <Clock size={18} aria-hidden /> Registration {formatDateTime(event.registrationOpensAt)} –{' '}
-          {formatDateTime(event.registrationClosesAt)}
-        </p>
-        <SpotsLine event={event} />
-      </Card>
-
-      <JoinBox event={event} onChange={setData} reload={reload} />
-
-      {event.description && (
-        <Card>
-          <h2 className="mb-2 font-semibold">About</h2>
-          <p className="text-[15px] whitespace-pre-line text-ink/90">{event.description}</p>
-        </Card>
-      )}
-
-      <ShareLink />
-
-      {event.isOrganizer && (
-        <Link
-          to={`/organize/${event.id}`}
-          className="flex items-center justify-center gap-2 rounded-xl border border-line bg-white py-3 text-sm font-semibold hover:bg-paper"
-        >
-          <Settings2 size={16} aria-hidden /> Manage this event
-        </Link>
-      )}
     </div>
   )
 }
@@ -88,7 +103,7 @@ function JoinBox({ event, onChange, reload }: { event: EventView; onChange: (e: 
 
   if (mine) {
     return (
-      <Card className="space-y-3">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
           <StatusBadge status={mine.status} forMe />
           {mine.checkedInAt && (
@@ -124,7 +139,7 @@ function JoinBox({ event, onChange, reload }: { event: EventView; onChange: (e: 
           )}
         </div>
         {error && <ErrorNote message={error} />}
-      </Card>
+      </div>
     )
   }
 
@@ -174,5 +189,19 @@ function ShareLink() {
       {copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}
       {copied ? 'Link copied' : 'Share this event'}
     </button>
+  )
+}
+
+function Fact({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex gap-3">
+      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-brand shadow-sm">
+        {icon}
+      </span>
+      <div>
+        <dt className="text-xs font-semibold tracking-wide text-muted uppercase">{label}</dt>
+        <dd className="font-medium">{value}</dd>
+      </div>
+    </div>
   )
 }

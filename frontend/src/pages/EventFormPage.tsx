@@ -83,8 +83,16 @@ function FormBody({ existing }: { existing: EventView | null }) {
   }
 
   return (
-    <form onSubmit={submit} className="mx-auto max-w-lg space-y-4">
-      <h1 className="text-2xl font-bold tracking-tight">{existing ? 'Edit event' : 'Create an event'}</h1>
+    <form
+      onSubmit={submit}
+      className="mx-auto max-w-2xl space-y-5 rounded-3xl border border-line bg-white p-6 shadow-sm sm:p-10"
+    >
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{existing ? 'Edit event' : 'Create an event'}</h1>
+        <p className="mt-1 text-[15px] text-muted">
+          {existing ? 'Changes show up for everyone right away.' : 'It stays a draft until you publish it.'}
+        </p>
+      </div>
       <Field label="Event name">
         <input className={inputClass} value={form.title} onChange={set('title')} required maxLength={120} />
       </Field>

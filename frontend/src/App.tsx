@@ -5,10 +5,13 @@ import Layout from './Layout'
 import EventDetail from './pages/EventDetail'
 import EventFormPage from './pages/EventFormPage'
 import Events from './pages/Events'
+import HowItWorks from './pages/HowItWorks'
 import Login from './pages/Login'
 import Manage from './pages/Manage'
 import MyRegistrations from './pages/MyRegistrations'
+import NotFound from './pages/NotFound'
 import Organize from './pages/Organize'
+import Privacy from './pages/Privacy'
 import { Loading } from './ui'
 
 function RequireLogin({ children }: { children: ReactNode }) {
@@ -33,7 +36,9 @@ export default function App() {
             <Route path="organize/new" element={<RequireLogin><EventFormPage /></RequireLogin>} />
             <Route path="organize/:id" element={<RequireLogin><Manage /></RequireLogin>} />
             <Route path="organize/:id/edit" element={<RequireLogin><EventFormPage /></RequireLogin>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="how-it-works" element={<HowItWorks />} />
+            <Route path="privacy" element={<Privacy />} />
+            <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </BrowserRouter>

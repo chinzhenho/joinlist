@@ -8,9 +8,10 @@ export default function Login() {
   const { user, signIn } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const back = (location.state as { from?: string } | null)?.from ?? '/'
+  const state = location.state as { from?: string; mode?: 'login' | 'register' } | null
+  const back = state?.from ?? '/'
 
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [mode, setMode] = useState<'login' | 'register'>(state?.mode ?? 'login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -35,7 +36,7 @@ export default function Login() {
   }
 
   return (
-    <div className="mx-auto max-w-sm pt-6">
+    <div className="mx-auto max-w-md rounded-3xl border border-line bg-white px-6 py-8 shadow-sm sm:px-10 sm:py-10">
       <div className="mb-6 flex flex-col items-center text-center">
         <Logo size={44} />
         <h1 className="mt-4 text-2xl font-bold tracking-tight">

@@ -24,10 +24,18 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   busy?: boolean
 }
 
+/** Same look as <Button>, for links styled as buttons. */
+export const buttonClass = {
+  primary:
+    'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-[15px] font-semibold whitespace-nowrap text-paper shadow-sm transition-colors hover:bg-brand-dark',
+  secondary:
+    'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-[15px] font-semibold whitespace-nowrap text-ink shadow-sm transition-colors hover:bg-paper',
+}
+
 export function Button({ variant = 'primary', busy, className = '', children, disabled, ...rest }: ButtonProps) {
   const look = {
-    primary: 'bg-brand text-paper hover:bg-brand-dark',
-    secondary: 'bg-white text-ink border border-line hover:bg-paper',
+    primary: 'bg-brand text-paper shadow-sm hover:bg-brand-dark',
+    secondary: 'bg-white text-ink border border-line shadow-sm hover:bg-paper',
     danger: 'bg-white text-red-700 border border-red-200 hover:bg-red-50',
   }[variant]
   return (
@@ -56,7 +64,7 @@ export const inputClass =
   'block w-full min-h-11 rounded-xl border border-line bg-white px-3.5 text-[16px] outline-none focus:border-brand focus:ring-2 focus:ring-brand/20'
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`rounded-2xl border border-line bg-white p-5 ${className}`}>{children}</div>
+  return <div className={`rounded-2xl border border-line bg-white p-5 shadow-[0_1px_2px_rgba(37,41,35,0.04)] ${className}`}>{children}</div>
 }
 
 export function Loading() {
@@ -118,4 +126,16 @@ export function StatusBadge({ status, forMe = false }: { status: string; forMe?:
   const label =
     status === 'CONFIRMED' ? (forMe ? "You're in" : 'Confirmed') : status === 'WAITLISTED' ? 'Waitlist' : 'Cancelled'
   return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${look}`}>{label}</span>
+}
+
+export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
+  return (
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
+        {subtitle && <p className="mt-1 text-[15px] text-muted">{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+  )
 }
