@@ -122,17 +122,22 @@ Singapore), with the rate limiter **on**, from one laptop in Malaysia. Scripts: 
 At the same time: 100 people browsing (event list and event page, a second apart), 100 open pages listening for
 live updates, and 40 people pressing Register at the same moment for 10 seats.
 
-| What | Result |
-|---|---|
-| Seats | **10 confirmed, 30 waitlisted, counter = rows** (no overbooking) |
-| Failed requests | **0 of 4,254** |
-| Browsing, per page | median 0.6 s, p95 2.3 s, max 7.0 s |
-| Registering during the rush | median 3.9 s, p95 6.9 s, max 9.7 s |
-| Live-update connections | 100 of 100 stayed connected for 8 minutes, and 100 of 100 received the updates |
+Two runs with identical settings: before and after caching the public pages and login checks in memory
+(cleared on every change, see `PublicEventCache` and `TokenCutoffs`) and capping Tomcat at 40 threads.
 
-What this says: correctness and stability held, but the free instance (a tenth of a CPU) is the bottleneck, so
-pages get slow under this much load. The same code answers in well under a second on a laptop (see above).
-Cheap next steps: cache the public event list for a second, and a bigger instance.
+| What | Before | After |
+|---|---|---|
+| Seats | 10 confirmed, 30 waitlisted, counter = rows | **same: no overbooking** |
+| Failed requests | 0 of 4,254 | **0 of 6,322** |
+| Requests served in the same 90 s | 4,254 | **6,322 (+49%)** |
+| Browsing, per page | median 603 ms, p95 2,323 ms | **median 131 ms, p95 407 ms** |
+| Registering during the rush | median 3.9 s, p95 6.9 s, max 9.7 s | **median 2.9 s, p95 4.7 s, max 5.5 s** |
+| Live-update connections | 100/100 stayed up, 100/100 got updates | **same** |
+
+What this says: correctness and stability held in both runs. Caching took most of the browsing load off the
+database. Registering is still a few seconds under a 40-person rush, because every registration has to do real
+work (a transaction with row locks) on a tenth of a CPU; on a laptop the same code takes well under a second
+(see above). The next step for that would be a bigger instance, not more code.
 
 ### Automated check of a running server
 
