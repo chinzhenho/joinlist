@@ -103,10 +103,6 @@ public class ChangeFeed {
         clients.clear();
     }
 
-    public int clientCount() {
-        return clients.size();
-    }
-
     /** A fresh message per client: a built SSE message can't be sent twice. */
     private void broadcast(Supplier<SseEmitter.SseEventBuilder> message) {
         for (SseEmitter client : clients) {

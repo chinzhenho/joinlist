@@ -82,7 +82,7 @@ Easier to reason about. Requests for the same event queue up behind the lock.
 | 25 cancellations + 40 new registrations at once | no empty seat while people wait; counter = rows |
 
 Plus rules tests (waitlist order, capacity changes, cancel cut-off, check-in once, forged QR codes) and an
-HTTP flow test (sign-up → publish → register → waitlist → check-in → permissions). **22 tests, all passing.**
+HTTP flow test (sign-up → publish → register → waitlist → check-in → permissions). Plus account, live-update, caching and rate-limit tests. **29 tests, all passing.**
 
 ### Load test (k6, over HTTP)
 

@@ -105,9 +105,6 @@ public class RegistrationController {
      * registered for this event and compare. One HMAC takes about a microsecond, so even 10,000 people is quick.
      */
     private OptionalLong findByCode(long eventId, String input) {
-        if (input != null && input.contains(".")) {
-            return qr.verifyOldToken(input); // old long format
-        }
         String code = qr.normalize(input);
         if (code.isEmpty()) {
             return OptionalLong.empty();
